@@ -1,0 +1,21 @@
+# Firebase config (opcional - solo si no quieres subir las credenciales)
+# firebase-config.js
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Environment variables
+.env
+.env.local
+
