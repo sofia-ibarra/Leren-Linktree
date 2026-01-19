@@ -131,10 +131,12 @@ body {
 
 .carousel-swiper {
     width: 100%;
+    overflow: visible;
 }
 
 .carousel-swiper .swiper-wrapper {
     align-items: center;
+    transition-timing-function: linear !important;
 }
 
 .carousel-item {
