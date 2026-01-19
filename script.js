@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Configurar event listeners del panel de administración
     setupAdminEventListeners();
-    setupLogoAdminAccess();
+    setupAdminAccessFromUrl();
     
     // Esperar a que Splide esté disponible
     if (typeof Splide !== 'undefined') {
@@ -250,90 +250,23 @@ function initCarousel() {
 
 // ========== PANEL DE ADMINISTRACIÓN ==========
 
-// Acceso secreto: doble click/toque o toque largo en el logo
-let logoClickCount = 0;
-let logoClickTimer = null;
-let longPressTimer = null;
-let isLongPress = false;
+// Acceso al panel: /admin en la URL abre el modal de login
+function isAdminPath() {
+    const p = window.location.pathname;
+    return p === '/admin' || p === '/admin/';
+}
 
-function setupLogoAdminAccess() {
-    const logo = document.getElementById('logoAdminAccess');
-    if (!logo) return;
-    
-    // Función para manejar doble click/toque
-    const handleDoubleTap = () => {
-        logoClickCount++;
-        
-        // Resetear contador después de 500ms
-        clearTimeout(logoClickTimer);
-        logoClickTimer = setTimeout(() => {
-            logoClickCount = 0;
-        }, 500);
-        
-        // Si se hace doble click/toque, abrir panel
-        if (logoClickCount === 2) {
-            logoClickCount = 0;
-            clearTimeout(logoClickTimer);
-            toggleAdminLogin();
+function setupAdminAccessFromUrl() {
+    if (isAdminPath()) {
+        const loginPanel = document.getElementById('adminLoginPanel');
+        if (loginPanel) {
+            loginPanel.style.display = 'flex';
+            setTimeout(() => {
+                const passwordInput = document.getElementById('adminPassword');
+                if (passwordInput) passwordInput.focus();
+            }, 100);
         }
-    };
-    
-    // Evento para desktop (click)
-    logo.addEventListener('click', (e) => {
-        // Solo si no fue un toque largo
-        if (!isLongPress) {
-            handleDoubleTap();
-        }
-        isLongPress = false;
-    });
-    
-    // Eventos para móvil (touch)
-    let touchStartTime = 0;
-    let touchStartX = 0;
-    let touchStartY = 0;
-    
-    logo.addEventListener('touchstart', (e) => {
-        isLongPress = false;
-        touchStartTime = Date.now();
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        
-        // Iniciar timer para toque largo (1 segundo)
-        longPressTimer = setTimeout(() => {
-            isLongPress = true;
-            toggleAdminLogin();
-        }, 1000);
-    }, { passive: true });
-    
-    logo.addEventListener('touchend', (e) => {
-        clearTimeout(longPressTimer);
-        
-        // Si no fue un toque largo, verificar si fue doble toque
-        if (!isLongPress) {
-            const touchDuration = Date.now() - touchStartTime;
-            const touchEndX = e.changedTouches[0].clientX;
-            const touchEndY = e.changedTouches[0].clientY;
-            
-            // Si el toque fue corto y no se movió mucho, contar como toque
-            if (touchDuration < 300 && 
-                Math.abs(touchEndX - touchStartX) < 10 && 
-                Math.abs(touchEndY - touchStartY) < 10) {
-                handleDoubleTap();
-            }
-        }
-        
-        isLongPress = false;
-    }, { passive: true });
-    
-    logo.addEventListener('touchmove', (e) => {
-        // Si se mueve el dedo, cancelar toque largo
-        clearTimeout(longPressTimer);
-    }, { passive: true });
-    
-    // Prevenir el menú contextual en toque largo
-    logo.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-    });
+    }
 }
 
 // Mostrar/ocultar panel de login
@@ -378,7 +311,24 @@ function loginAdmin() {
 function closeAdminPanel() {
     document.getElementById('adminPanel').style.display = 'none';
     document.getElementById('adminLoginPanel').style.display = 'none';
+    // Si estábamos en /admin, limpiar la URL al cerrar
+    if (isAdminPath()) {
+        history.replaceState(null, '', '/');
+    }
 }
+
+// Estado para arrastrar y reordenar
+let draggingIndex = -1;
+
+// Grip SVG (6 puntos) para indicar que se puede arrastrar
+const DRAG_HANDLE_SVG = `<svg width="12" height="20" viewBox="0 0 12 20" class="admin-drag-handle-svg" aria-hidden="true">
+  <circle cx="4" cy="4" r="1.5" fill="currentColor"/>
+  <circle cx="8" cy="4" r="1.5" fill="currentColor"/>
+  <circle cx="4" cy="10" r="1.5" fill="currentColor"/>
+  <circle cx="8" cy="10" r="1.5" fill="currentColor"/>
+  <circle cx="4" cy="16" r="1.5" fill="currentColor"/>
+  <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
+</svg>`;
 
 // Cargar botones en el panel de administración
 function loadAdminButtons() {
@@ -394,26 +344,94 @@ function loadAdminButtons() {
     buttons.forEach((button, index) => {
         const item = document.createElement('div');
         item.className = 'admin-button-item';
-        const canMoveUp = index > 0;
-        const canMoveDown = index < buttons.length - 1;
+        item.dataset.index = String(index);
         item.innerHTML = `
+            <div class="admin-drag-handle" title="Arrastra para reordenar" role="button" tabindex="0">${DRAG_HANDLE_SVG}</div>
             <div class="admin-button-info">
                 <strong>${button.title}</strong>
                 <span>${button.link}</span>
             </div>
             <div class="admin-button-actions">
-                ${(canMoveUp || canMoveDown) ? `
-                <div class="admin-button-order">
-                    ${canMoveUp ? `<button onclick="moveButtonUp(${index})" class="btn-move" title="Subir">↑</button>` : ''}
-                    ${canMoveDown ? `<button onclick="moveButtonDown(${index})" class="btn-move" title="Bajar">↓</button>` : ''}
-                </div>
-                ` : ''}
                 <button onclick="editButton(${index})" class="btn-edit">Editar</button>
                 <button onclick="deleteButton(${index})" class="btn-delete">Eliminar</button>
             </div>
         `;
+        // Mousedown en el grip para iniciar arrastre
+        const handle = item.querySelector('.admin-drag-handle');
+        if (handle) {
+            handle.addEventListener('mousedown', (e) => { e.preventDefault(); startDrag(index, e); });
+        }
         adminList.appendChild(item);
     });
+}
+
+// Iniciar arrastre
+function startDrag(fromIndex, e) {
+    if (draggingIndex >= 0) return;
+    draggingIndex = fromIndex;
+    const list = document.getElementById('adminButtonsList');
+    const items = list.querySelectorAll('.admin-button-item');
+    const draggedEl = items[fromIndex];
+    if (draggedEl) draggedEl.classList.add('admin-button-item-dragging');
+    
+    const onMouseMove = (e) => {
+        const toIndex = getDropIndex(e.clientY, fromIndex, list);
+        // opcional: mostrar indicador; por simplicidad solo calculamos
+    };
+    const onMouseUp = (e) => {
+        const toIndex = getDropIndex(e.clientY, fromIndex, list);
+        endDrag(fromIndex, toIndex);
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+}
+
+// Calcular índice de soltado según la posición Y del mouse
+function getDropIndex(mouseY, fromIndex, list) {
+    const items = list.querySelectorAll('.admin-button-item');
+    if (items.length === 0) return 0;
+    const rects = Array.from(items).map(el => el.getBoundingClientRect());
+    const firstTop = rects[0].top;
+    const lastBottom = rects[rects.length - 1].bottom;
+    if (mouseY <= firstTop) return 0;
+    if (mouseY >= lastBottom) return items.length;
+    for (let i = 0; i < rects.length; i++) {
+        const r = rects[i];
+        if (mouseY >= r.top && mouseY <= r.bottom) {
+            if (i === fromIndex) return fromIndex; // sobre el que se arrastra: no mover
+            const mid = r.top + r.height / 2;
+            return mouseY < mid ? i : i + 1;
+        }
+    }
+    return fromIndex;
+}
+
+// Finalizar arrastre y reordenar
+async function endDrag(fromIndex, toIndex) {
+    const list = document.getElementById('adminButtonsList');
+    const draggedEl = list.querySelector('.admin-button-item-dragging');
+    if (draggedEl) draggedEl.classList.remove('admin-button-item-dragging');
+    draggingIndex = -1;
+    
+    if (toIndex === fromIndex || toIndex < 0) return;
+    const buttons = getButtonsFromStorage() || [];
+    if (fromIndex < 0 || fromIndex >= buttons.length) return;
+    
+    const item = buttons.splice(fromIndex, 1)[0];
+    buttons.splice(toIndex, 0, item);
+    
+    try {
+        await saveToFirestore(buttons);
+        cancelEditIfActive();
+        loadAdminButtons();
+        generateButtons(buttons);
+        showNotification('Orden actualizado', 'success');
+    } catch (err) {
+        console.error('Error al reordenar:', err);
+        showNotification('Error al cambiar orden. Intenta nuevamente.', 'error');
+    }
 }
 
 // Agregar nuevo botón
@@ -553,44 +571,6 @@ async function deleteButton(index) {
     } catch (error) {
         console.error('Error eliminando botón:', error);
         showNotification('Error al eliminar botón. Intenta nuevamente.', 'error');
-    }
-}
-
-// Subir botón (mover hacia arriba en la lista)
-async function moveButtonUp(index) {
-    if (index <= 0) return;
-    
-    try {
-        const buttons = getButtonsFromStorage() || [];
-        [buttons[index - 1], buttons[index]] = [buttons[index], buttons[index - 1]];
-        
-        await saveToFirestore(buttons);
-        cancelEditIfActive();
-        loadAdminButtons();
-        generateButtons(buttons);
-        showNotification('Orden actualizado', 'success');
-    } catch (error) {
-        console.error('Error al cambiar orden:', error);
-        showNotification('Error al cambiar orden. Intenta nuevamente.', 'error');
-    }
-}
-
-// Bajar botón (mover hacia abajo en la lista)
-async function moveButtonDown(index) {
-    const buttons = getButtonsFromStorage() || [];
-    if (index >= buttons.length - 1) return;
-    
-    try {
-        [buttons[index], buttons[index + 1]] = [buttons[index + 1], buttons[index]];
-        
-        await saveToFirestore(buttons);
-        cancelEditIfActive();
-        loadAdminButtons();
-        generateButtons(buttons);
-        showNotification('Orden actualizado', 'success');
-    } catch (error) {
-        console.error('Error al cambiar orden:', error);
-        showNotification('Error al cambiar orden. Intenta nuevamente.', 'error');
     }
 }
 
