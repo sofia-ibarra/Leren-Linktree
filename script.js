@@ -300,22 +300,6 @@ function closeAdminPanel() {
     }
 }
 
-// Estado para arrastrar y reordenar
-let draggingIndex = -1;
-
-// Ícono de “arrastrar” (3 líneas) + se usa con texto "Mover"
-const DRAG_HANDLE_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" class="admin-drag-handle-icon" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-  <line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="19" y2="17"/>
-</svg>`;
-
-// Obtener Y del evento (mouse o touch)
-function getEventY(e) {
-    if (e.clientY != null) return e.clientY;
-    if (e.touches && e.touches[0]) return e.touches[0].clientY;
-    if (e.changedTouches && e.changedTouches[0]) return e.changedTouches[0].clientY;
-    return 0;
-}
-
 // Cargar botones en el panel de administración
 function loadAdminButtons() {
     const buttons = getButtonsFromStorage() || [];
@@ -330,112 +314,58 @@ function loadAdminButtons() {
     buttons.forEach((button, index) => {
         const item = document.createElement('div');
         item.className = 'admin-button-item';
-        item.dataset.index = String(index);
+        const canMoveUp = index > 0;
+        const canMoveDown = index < buttons.length - 1;
         item.innerHTML = `
-            <div class="admin-drag-handle" title="Arrastra para cambiar el orden" role="button">
-                ${DRAG_HANDLE_ICON}
-                <span class="admin-drag-handle-label">Mover</span>
-            </div>
             <div class="admin-button-info">
                 <strong>${button.title}</strong>
                 <span>${button.link}</span>
             </div>
             <div class="admin-button-actions">
-                <button onclick="editButton(${index})" class="btn-edit">Editar</button>
-                <button onclick="deleteButton(${index})" class="btn-delete">Eliminar</button>
+                ${(canMoveUp || canMoveDown) ? `
+                <div class="admin-button-order">
+                    ${canMoveUp ? `<button type="button" onclick="moveButtonUp(${index})" class="btn-move" title="Subir" aria-label="Subir">↑</button>` : ''}
+                    ${canMoveDown ? `<button type="button" onclick="moveButtonDown(${index})" class="btn-move" title="Bajar" aria-label="Bajar">↓</button>` : ''}
+                </div>
+                ` : ''}
+                <button type="button" onclick="editButton(${index})" class="btn-edit">Editar</button>
+                <button type="button" onclick="deleteButton(${index})" class="btn-delete">Eliminar</button>
             </div>
         `;
-        const handleEl = item.querySelector('.admin-drag-handle');
-        if (handleEl) {
-            handleEl.addEventListener('mousedown', (e) => { e.preventDefault(); startDrag(index, e); });
-            handleEl.addEventListener('touchstart', (e) => { e.preventDefault(); startDrag(index, e); }, { passive: false });
-            handleEl.addEventListener('contextmenu', (e) => e.preventDefault());
-        }
         adminList.appendChild(item);
     });
 }
 
-// Iniciar arrastre (mouse o touch)
-function startDrag(fromIndex, e) {
-    if (draggingIndex >= 0) return;
-    draggingIndex = fromIndex;
-    const list = document.getElementById('adminButtonsList');
-    const items = list.querySelectorAll('.admin-button-item');
-    const draggedEl = items[fromIndex];
-    if (draggedEl) draggedEl.classList.add('admin-button-item-dragging');
-
-    const isTouch = e.type === 'touchstart';
-
-    const onEnd = (ev) => {
-        const toIndex = getDropIndex(getEventY(ev), fromIndex, list);
-        endDrag(fromIndex, toIndex);
-        if (isTouch) {
-            document.removeEventListener('touchmove', onMove);
-            document.removeEventListener('touchend', onEnd);
-            document.removeEventListener('touchcancel', onEnd);
-        } else {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onEnd);
-        }
-    };
-
-    const onMove = (ev) => {
-        if (isTouch) ev.preventDefault();
-        getDropIndex(getEventY(ev), fromIndex, list);
-    };
-
-    if (isTouch) {
-        document.addEventListener('touchmove', onMove, { passive: false });
-        document.addEventListener('touchend', onEnd);
-        document.addEventListener('touchcancel', onEnd);
-    } else {
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onEnd);
-    }
-}
-
-// Calcular índice de soltado según la posición Y del mouse
-function getDropIndex(mouseY, fromIndex, list) {
-    const items = list.querySelectorAll('.admin-button-item');
-    if (items.length === 0) return 0;
-    const rects = Array.from(items).map(el => el.getBoundingClientRect());
-    const firstTop = rects[0].top;
-    const lastBottom = rects[rects.length - 1].bottom;
-    if (mouseY <= firstTop) return 0;
-    if (mouseY >= lastBottom) return items.length;
-    for (let i = 0; i < rects.length; i++) {
-        const r = rects[i];
-        if (mouseY >= r.top && mouseY <= r.bottom) {
-            if (i === fromIndex) return fromIndex; // sobre el que se arrastra: no mover
-            const mid = r.top + r.height / 2;
-            return mouseY < mid ? i : i + 1;
-        }
-    }
-    return fromIndex;
-}
-
-// Finalizar arrastre y reordenar
-async function endDrag(fromIndex, toIndex) {
-    const list = document.getElementById('adminButtonsList');
-    const draggedEl = list.querySelector('.admin-button-item-dragging');
-    if (draggedEl) draggedEl.classList.remove('admin-button-item-dragging');
-    draggingIndex = -1;
-    
-    if (toIndex === fromIndex || toIndex < 0) return;
-    const buttons = getButtonsFromStorage() || [];
-    if (fromIndex < 0 || fromIndex >= buttons.length) return;
-    
-    const item = buttons.splice(fromIndex, 1)[0];
-    buttons.splice(toIndex, 0, item);
-    
+// Subir botón en la lista
+async function moveButtonUp(index) {
+    if (index <= 0) return;
     try {
+        const buttons = getButtonsFromStorage() || [];
+        [buttons[index - 1], buttons[index]] = [buttons[index], buttons[index - 1]];
         await saveToFirestore(buttons);
         cancelEditIfActive();
         loadAdminButtons();
         generateButtons(buttons);
         showNotification('Orden actualizado', 'success');
     } catch (err) {
-        console.error('Error al reordenar:', err);
+        console.error('Error al cambiar orden:', err);
+        showNotification('Error al cambiar orden. Intenta nuevamente.', 'error');
+    }
+}
+
+// Bajar botón en la lista
+async function moveButtonDown(index) {
+    const buttons = getButtonsFromStorage() || [];
+    if (index >= buttons.length - 1) return;
+    try {
+        [buttons[index], buttons[index + 1]] = [buttons[index + 1], buttons[index]];
+        await saveToFirestore(buttons);
+        cancelEditIfActive();
+        loadAdminButtons();
+        generateButtons(buttons);
+        showNotification('Orden actualizado', 'success');
+    } catch (err) {
+        console.error('Error al cambiar orden:', err);
         showNotification('Error al cambiar orden. Intenta nuevamente.', 'error');
     }
 }

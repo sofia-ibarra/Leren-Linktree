@@ -579,36 +579,36 @@ body {
     word-break: break-all;
 }
 
-.admin-drag-handle {
-    flex-shrink: 0;
-    width: 28px;
-    height: 40px;
+.admin-button-order {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.btn-move {
+    width: 26px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: rgba(1, 248, 209, 0.5);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: grab;
-    color: rgba(1, 248, 209, 0.6);
-    border-radius: 4px;
-    margin-right: 10px;
-    transition: color 0.2s ease, background 0.2s ease;
+    transition: color 0.15s ease, background 0.15s ease;
 }
 
-.admin-drag-handle:hover {
+.btn-move:hover {
     color: #01F8D1;
     background: rgba(1, 248, 209, 0.1);
 }
 
-.admin-drag-handle:active,
-.admin-button-item-dragging .admin-drag-handle {
-    cursor: grabbing;
-}
-
-.admin-drag-handle-svg {
-    pointer-events: none;
-}
-
-.admin-button-item-dragging {
-    opacity: 0.7;
+.btn-move:active {
+    background: rgba(1, 248, 209, 0.15);
 }
 
 .admin-button-actions {
