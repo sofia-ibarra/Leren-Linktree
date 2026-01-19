@@ -394,12 +394,20 @@ function loadAdminButtons() {
     buttons.forEach((button, index) => {
         const item = document.createElement('div');
         item.className = 'admin-button-item';
+        const canMoveUp = index > 0;
+        const canMoveDown = index < buttons.length - 1;
         item.innerHTML = `
             <div class="admin-button-info">
                 <strong>${button.title}</strong>
                 <span>${button.link}</span>
             </div>
             <div class="admin-button-actions">
+                ${(canMoveUp || canMoveDown) ? `
+                <div class="admin-button-order">
+                    ${canMoveUp ? `<button onclick="moveButtonUp(${index})" class="btn-move" title="Subir">↑</button>` : ''}
+                    ${canMoveDown ? `<button onclick="moveButtonDown(${index})" class="btn-move" title="Bajar">↓</button>` : ''}
+                </div>
+                ` : ''}
                 <button onclick="editButton(${index})" class="btn-edit">Editar</button>
                 <button onclick="deleteButton(${index})" class="btn-delete">Eliminar</button>
             </div>
@@ -546,6 +554,56 @@ async function deleteButton(index) {
         console.error('Error eliminando botón:', error);
         showNotification('Error al eliminar botón. Intenta nuevamente.', 'error');
     }
+}
+
+// Subir botón (mover hacia arriba en la lista)
+async function moveButtonUp(index) {
+    if (index <= 0) return;
+    
+    try {
+        const buttons = getButtonsFromStorage() || [];
+        [buttons[index - 1], buttons[index]] = [buttons[index], buttons[index - 1]];
+        
+        await saveToFirestore(buttons);
+        cancelEditIfActive();
+        loadAdminButtons();
+        generateButtons(buttons);
+        showNotification('Orden actualizado', 'success');
+    } catch (error) {
+        console.error('Error al cambiar orden:', error);
+        showNotification('Error al cambiar orden. Intenta nuevamente.', 'error');
+    }
+}
+
+// Bajar botón (mover hacia abajo en la lista)
+async function moveButtonDown(index) {
+    const buttons = getButtonsFromStorage() || [];
+    if (index >= buttons.length - 1) return;
+    
+    try {
+        [buttons[index], buttons[index + 1]] = [buttons[index + 1], buttons[index]];
+        
+        await saveToFirestore(buttons);
+        cancelEditIfActive();
+        loadAdminButtons();
+        generateButtons(buttons);
+        showNotification('Orden actualizado', 'success');
+    } catch (error) {
+        console.error('Error al cambiar orden:', error);
+        showNotification('Error al cambiar orden. Intenta nuevamente.', 'error');
+    }
+}
+
+// Cancelar modo edición al reordenar (evita guardar sobre el botón equivocado)
+function cancelEditIfActive() {
+    if (editingIndex < 0) return;
+    editingIndex = -1;
+    document.getElementById('newButtonTitle').value = '';
+    document.getElementById('newButtonLink').value = '';
+    document.getElementById('adminFormTitle').textContent = 'Agregar Nuevo Botón';
+    const addBtn = document.getElementById('addButtonBtn');
+    addBtn.textContent = 'Agregar Botón';
+    addBtn.onclick = addButton;
 }
 
 // Configurar event listeners para Enter
