@@ -200,52 +200,35 @@ document.addEventListener('DOMContentLoaded', () => {
     setupAdminEventListeners();
     setupAdminAccessFromUrl();
     
-    // Esperar a que Splide esté disponible
-    if (typeof Splide !== 'undefined') {
-        initCarousel();
-    } else {
-        // Si Splide no está cargado, esperar un poco más
-        setTimeout(() => {
-            if (typeof Splide !== 'undefined') {
-                initCarousel();
-            } else {
-                console.error('Splide no está disponible');
-            }
-        }, 100);
-    }
+    initCarousel();
 });
 
-// Inicializar carrusel con Splide
+// Inicializar carrusel con Swiper
 function initCarousel() {
-    const element = document.querySelector('#carousel-splide');
-    if (!element) {
-        console.error('Elemento del carrusel no encontrado');
-        return;
-    }
-    
-    const splide = new Splide('#carousel-splide', {
-        type: 'loop',
-        perPage: 9,
-        perMove: 1,
-        gap: '10px',
-        autoplay: true,
-        interval: 1100, 
-        speed: 12000,
-        pauseOnHover: false,
-        pauseOnFocus: false,
-        drag: 'free',
-        arrows: false,
-        pagination: false,
-        wheel: false,
+    const swiper = new Swiper('.carousel-swiper', {
+        slidesPerView: 3,
+        spaceBetween: 5,
+        loop: true,
+        speed: 3000,
+        allowTouchMove: false,
+        autoplay: {
+            delay: 1,
+            disableOnInteraction: false,
+            pauseOnMouseEnter: false,
+        },
         breakpoints: {
             768: {
-                perPage: 3,
-                gap: '10px',
+                slidesPerView: 7,
+                spaceBetween: 10,
+                loopedSlides: 9,
             }
         }
     });
-    
-    splide.mount();
+
+    // Forzar movimiento continuo cada 100ms para fluidez
+    setInterval(() => {
+        swiper.slideNext();
+    }, 100);
 }
 
 // ========== PANEL DE ADMINISTRACIÓN ==========

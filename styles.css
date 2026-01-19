@@ -129,16 +129,14 @@ body {
     overflow: hidden;
 }
 
-#carousel-splide {
+.carousel-swiper {
     width: 100%;
-}
-
-#carousel-splide .splide__track {
     overflow: visible;
 }
 
-#carousel-splide .splide__list {
+.carousel-swiper .swiper-wrapper {
     align-items: center;
+    transition-timing-function: linear !important;
 }
 
 .carousel-item {
