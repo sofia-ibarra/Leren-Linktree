@@ -303,15 +303,18 @@ function closeAdminPanel() {
 // Estado para arrastrar y reordenar
 let draggingIndex = -1;
 
-// Grip SVG (6 puntos) para indicar que se puede arrastrar
-const DRAG_HANDLE_SVG = `<svg width="12" height="20" viewBox="0 0 12 20" class="admin-drag-handle-svg" aria-hidden="true">
-  <circle cx="4" cy="4" r="1.5" fill="currentColor"/>
-  <circle cx="8" cy="4" r="1.5" fill="currentColor"/>
-  <circle cx="4" cy="10" r="1.5" fill="currentColor"/>
-  <circle cx="8" cy="10" r="1.5" fill="currentColor"/>
-  <circle cx="4" cy="16" r="1.5" fill="currentColor"/>
-  <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
+// Ícono de “arrastrar” (3 líneas) + se usa con texto "Mover"
+const DRAG_HANDLE_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" class="admin-drag-handle-icon" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+  <line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="19" y2="17"/>
 </svg>`;
+
+// Obtener Y del evento (mouse o touch)
+function getEventY(e) {
+    if (e.clientY != null) return e.clientY;
+    if (e.touches && e.touches[0]) return e.touches[0].clientY;
+    if (e.changedTouches && e.changedTouches[0]) return e.changedTouches[0].clientY;
+    return 0;
+}
 
 // Cargar botones en el panel de administración
 function loadAdminButtons() {
@@ -329,7 +332,10 @@ function loadAdminButtons() {
         item.className = 'admin-button-item';
         item.dataset.index = String(index);
         item.innerHTML = `
-            <div class="admin-drag-handle" title="Arrastra para reordenar" role="button" tabindex="0">${DRAG_HANDLE_SVG}</div>
+            <div class="admin-drag-handle" title="Arrastra para cambiar el orden" role="button">
+                ${DRAG_HANDLE_ICON}
+                <span class="admin-drag-handle-label">Mover</span>
+            </div>
             <div class="admin-button-info">
                 <strong>${button.title}</strong>
                 <span>${button.link}</span>
@@ -339,16 +345,17 @@ function loadAdminButtons() {
                 <button onclick="deleteButton(${index})" class="btn-delete">Eliminar</button>
             </div>
         `;
-        // Mousedown en el grip para iniciar arrastre
-        const handle = item.querySelector('.admin-drag-handle');
-        if (handle) {
-            handle.addEventListener('mousedown', (e) => { e.preventDefault(); startDrag(index, e); });
+        const handleEl = item.querySelector('.admin-drag-handle');
+        if (handleEl) {
+            handleEl.addEventListener('mousedown', (e) => { e.preventDefault(); startDrag(index, e); });
+            handleEl.addEventListener('touchstart', (e) => { e.preventDefault(); startDrag(index, e); }, { passive: false });
+            handleEl.addEventListener('contextmenu', (e) => e.preventDefault());
         }
         adminList.appendChild(item);
     });
 }
 
-// Iniciar arrastre
+// Iniciar arrastre (mouse o touch)
 function startDrag(fromIndex, e) {
     if (draggingIndex >= 0) return;
     draggingIndex = fromIndex;
@@ -356,19 +363,35 @@ function startDrag(fromIndex, e) {
     const items = list.querySelectorAll('.admin-button-item');
     const draggedEl = items[fromIndex];
     if (draggedEl) draggedEl.classList.add('admin-button-item-dragging');
-    
-    const onMouseMove = (e) => {
-        const toIndex = getDropIndex(e.clientY, fromIndex, list);
-        // opcional: mostrar indicador; por simplicidad solo calculamos
-    };
-    const onMouseUp = (e) => {
-        const toIndex = getDropIndex(e.clientY, fromIndex, list);
+
+    const isTouch = e.type === 'touchstart';
+
+    const onEnd = (ev) => {
+        const toIndex = getDropIndex(getEventY(ev), fromIndex, list);
         endDrag(fromIndex, toIndex);
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+        if (isTouch) {
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onEnd);
+            document.removeEventListener('touchcancel', onEnd);
+        } else {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onEnd);
+        }
     };
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+
+    const onMove = (ev) => {
+        if (isTouch) ev.preventDefault();
+        getDropIndex(getEventY(ev), fromIndex, list);
+    };
+
+    if (isTouch) {
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onEnd);
+        document.addEventListener('touchcancel', onEnd);
+    } else {
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onEnd);
+    }
 }
 
 // Calcular índice de soltado según la posición Y del mouse
