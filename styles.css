@@ -131,12 +131,10 @@ body {
 
 .carousel-swiper {
     width: 100%;
-    overflow: visible;
 }
 
 .carousel-swiper .swiper-wrapper {
     align-items: center;
-    transition-timing-function: linear !important;
 }
 
 .carousel-item {
@@ -581,56 +579,34 @@ body {
 
 .admin-drag-handle {
     flex-shrink: 0;
-    min-width: 56px;
-    min-height: 48px;
-    width: 56px;
-    align-self: stretch;
+    width: 28px;
+    height: 40px;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 8px 6px;
-    margin-right: 12px;
     cursor: grab;
-    color: rgba(1, 248, 209, 0.8);
-    background: rgba(1, 248, 209, 0.08);
-    border: 1px dashed rgba(1, 248, 209, 0.4);
-    border-radius: 6px;
-    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
+    color: rgba(1, 248, 209, 0.6);
+    border-radius: 4px;
+    margin-right: 10px;
+    transition: color 0.2s ease, background 0.2s ease;
 }
 
 .admin-drag-handle:hover {
     color: #01F8D1;
-    background: rgba(1, 248, 209, 0.15);
-    border-color: rgba(1, 248, 209, 0.5);
+    background: rgba(1, 248, 209, 0.1);
 }
 
 .admin-drag-handle:active,
 .admin-button-item-dragging .admin-drag-handle {
     cursor: grabbing;
-    background: rgba(1, 248, 209, 0.2);
-    border-color: #01F8D1;
 }
 
-.admin-drag-handle-icon {
-    flex-shrink: 0;
+.admin-drag-handle-svg {
     pointer-events: none;
-}
-
-.admin-drag-handle-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    pointer-events: none;
-    line-height: 1;
 }
 
 .admin-button-item-dragging {
-    opacity: 0.85;
+    opacity: 0.7;
 }
 
 .admin-button-actions {
@@ -712,19 +688,6 @@ body {
     .admin-button-item {
         flex-direction: column;
         align-items: flex-start;
-    }
-
-    .admin-drag-handle {
-        width: 100%;
-        min-height: 48px;
-        flex-direction: row;
-        margin-right: 0;
-        margin-bottom: 10px;
-        padding: 10px 12px;
-    }
-
-    .admin-drag-handle-label {
-        font-size: 12px;
     }
     
     .admin-button-actions {
