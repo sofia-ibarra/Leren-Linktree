@@ -1,3 +1,43 @@
+document.addEventListener("DOMContentLoaded", () => {
+
+  const URL_EXCEL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSijJi_zx1n5LBrg7YiQTEXaITNYzu3cXbAX1pgWy4q3K93bo4BnS21oyy70rH92TXeDPY7u3J7P3tC/pub?output=csv";
+
+  fetch(URL_EXCEL)
+    .then(response => response.text())
+    .then(csv => {
+      const filas = csv.split("\n").slice(1); // salteamos header
+
+      const datos = filas
+        .filter(fila => fila.trim() !== "") // eliminamos filas vacías
+        .map(fila => {
+          const [titulo, link] = fila.split(",");
+          return { titulo: titulo?.trim(), link: link?.trim() };
+        });
+
+      crearBotones(datos);
+    });
+
+  function crearBotones(datos) {
+    const contenedor = document.getElementById("buttonsContainer");
+
+    datos.forEach(item => {
+      if (!item.titulo || !item.link) return;
+
+      const a = document.createElement("a");
+      a.textContent = item.titulo;
+      a.href = item.link;
+      a.target = "_blank";
+
+      // 🎯 Solo agregamos la clase "button"
+      a.classList.add("button");
+
+      contenedor.appendChild(a);
+    });
+  }
+
+});
+
+
 // Contraseña hardcodeada para el panel de administración
 const ADMIN_PASSWORD = 'leren2026';
 
@@ -53,25 +93,25 @@ function showNotification(message, type = 'info') {
     }, duration);
 }
 
-// Cargar botones solo desde data/buttons.json
+// Cargar datos: primero desde data/buttons.json, si falla desde localStorage
 async function loadData() {
     try {
         const res = await fetch('data/buttons.json');
         if (res.ok) {
             const data = await res.json();
             const buttons = Array.isArray(data.buttons) ? data.buttons : (Array.isArray(data) ? data : []);
-            saveButtonsToStorage(buttons); // para que el panel admin pueda mostrarlos
+            saveButtonsToStorage(buttons);
             generateButtons(buttons);
             return;
         }
     } catch (e) {
-        // ignore
+        // Ignorar: usar localStorage
     }
-    saveButtonsToStorage([]);
-    generateButtons([]);
+    const buttons = getButtonsFromStorage() || [];
+    generateButtons(buttons);
 }
 
-// Guardar botones en localStorage (solo para la sesión del panel admin; la fuente de verdad es data/buttons.json)
+// Guardar botones en localStorage (el panel admin guarda aquí; para publicar usa "Descargar JSON" y sube data/buttons.json)
 function saveButtons(buttons) {
     saveButtonsToStorage(buttons);
 }
@@ -105,6 +145,18 @@ function generateButtons(buttons) {
         buttonElement.rel = 'noopener noreferrer';
         container.appendChild(buttonElement);
     });
+}
+
+// Descargar botones como JSON (para reemplazar data/buttons.json y publicar)
+function exportJSON() {
+    const buttons = getButtonsFromStorage() || [];
+    const blob = new Blob([JSON.stringify({ buttons }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'buttons.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showNotification('JSON descargado. Reemplazá data/buttons.json y volvé a desplegar.', 'success');
 }
 
 // Inicializar cuando la página esté lista
