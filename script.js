@@ -53,106 +53,27 @@ function showNotification(message, type = 'info') {
     }, duration);
 }
 
-// Cargar datos desde Firestore (o localStorage como fallback)
+// Cargar botones solo desde data/buttons.json
 async function loadData() {
-    // Intentar cargar desde Firestore primero
-    if (window.firebaseDb && window.firebaseFunctions) {
-        try {
-            await loadFromFirestore();
-            // Escuchar cambios en tiempo real
-            setupFirestoreListener();
+    try {
+        const res = await fetch('data/buttons.json');
+        if (res.ok) {
+            const data = await res.json();
+            const buttons = Array.isArray(data.buttons) ? data.buttons : (Array.isArray(data) ? data : []);
+            saveButtonsToStorage(buttons); // para que el panel admin pueda mostrarlos
+            generateButtons(buttons);
             return;
-        } catch (error) {
-            console.warn('Error cargando desde Firestore, usando localStorage:', error);
         }
+    } catch (e) {
+        // ignore
     }
-    
-    // Fallback: cargar desde localStorage
-    let buttons = getButtonsFromStorage();
-    
-    // Si no hay datos en localStorage, array vacío
-    if (!buttons || buttons.length === 0) {
-        buttons = [];
-    }
-    
-    // Generar botones
-    generateButtons(buttons);
+    saveButtonsToStorage([]);
+    generateButtons([]);
 }
 
-// Cargar desde Firestore
-async function loadFromFirestore() {
-    if (!window.firebaseDb || !window.firebaseFunctions) return;
-    
-    const { doc, getDoc } = window.firebaseFunctions;
-    const buttonsRef = doc(window.firebaseDb, 'config', 'buttons');
-    
-    try {
-        const docSnap = await getDoc(buttonsRef);
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            const buttons = data.buttons || [];
-            generateButtons(buttons);
-            // También guardar en localStorage como cache
-            saveButtonsToStorage(buttons);
-        } else {
-            // Si no existe, crear con datos de localStorage si existen
-            const defaultButtons = getButtonsFromStorage() || [];
-            if (defaultButtons.length > 0) {
-                await saveToFirestore(defaultButtons);
-                generateButtons(defaultButtons);
-            } else {
-                // Si no hay datos, crear documento vacío
-                await saveToFirestore([]);
-                generateButtons([]);
-            }
-        }
-    } catch (error) {
-        console.error('Error cargando desde Firestore:', error);
-        throw error;
-    }
-}
-
-// Guardar en Firestore
-async function saveToFirestore(buttons) {
-    if (!window.firebaseDb || !window.firebaseFunctions) {
-        // Fallback a localStorage si Firebase no está disponible
-        saveButtonsToStorage(buttons);
-        return;
-    }
-    
-    const { doc, setDoc } = window.firebaseFunctions;
-    const buttonsRef = doc(window.firebaseDb, 'config', 'buttons');
-    
-    try {
-        await setDoc(buttonsRef, { buttons: buttons });
-        // También guardar en localStorage como cache
-        saveButtonsToStorage(buttons);
-    } catch (error) {
-        console.error('Error guardando en Firestore:', error);
-        // Fallback a localStorage
-        saveButtonsToStorage(buttons);
-        throw error;
-    }
-}
-
-// Escuchar cambios en tiempo real desde Firestore
-function setupFirestoreListener() {
-    if (!window.firebaseDb || !window.firebaseFunctions) return;
-    
-    const { doc, onSnapshot } = window.firebaseFunctions;
-    const buttonsRef = doc(window.firebaseDb, 'config', 'buttons');
-    
-    onSnapshot(buttonsRef, (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            const buttons = data.buttons || [];
-            generateButtons(buttons);
-            // Actualizar cache en localStorage
-            saveButtonsToStorage(buttons);
-        }
-    }, (error) => {
-        console.error('Error en listener de Firestore:', error);
-    });
+// Guardar botones en localStorage (solo para la sesión del panel admin; la fuente de verdad es data/buttons.json)
+function saveButtons(buttons) {
+    saveButtonsToStorage(buttons);
 }
 
 // Obtener botones desde localStorage
@@ -342,7 +263,7 @@ async function moveButtonUp(index) {
     try {
         const buttons = getButtonsFromStorage() || [];
         [buttons[index - 1], buttons[index]] = [buttons[index], buttons[index - 1]];
-        await saveToFirestore(buttons);
+        saveButtons(buttons);
         cancelEditIfActive();
         loadAdminButtons();
         generateButtons(buttons);
@@ -359,7 +280,7 @@ async function moveButtonDown(index) {
     if (index >= buttons.length - 1) return;
     try {
         [buttons[index], buttons[index + 1]] = [buttons[index + 1], buttons[index]];
-        await saveToFirestore(buttons);
+        saveButtons(buttons);
         cancelEditIfActive();
         loadAdminButtons();
         generateButtons(buttons);
@@ -393,8 +314,8 @@ async function addButton() {
         const buttons = getButtonsFromStorage() || [];
         buttons.push({ title, link });
         
-        // Guardar en Firestore (o localStorage como fallback)
-        await saveToFirestore(buttons);
+        // Guardar en localStorage
+        saveButtons(buttons);
         
         // Limpiar inputs
         titleInput.value = '';
@@ -459,8 +380,8 @@ async function saveButtonEdit(index) {
         const buttons = getButtonsFromStorage() || [];
         buttons[index] = { title, link };
         
-        // Guardar en Firestore (o localStorage como fallback)
-        await saveToFirestore(buttons);
+        // Guardar en localStorage
+        saveButtons(buttons);
         
         // Limpiar formulario y resetear botón
         titleInput.value = '';
@@ -495,8 +416,8 @@ async function deleteButton(index) {
         const buttons = getButtonsFromStorage() || [];
         buttons.splice(index, 1);
         
-        // Guardar en Firestore (o localStorage como fallback)
-        await saveToFirestore(buttons);
+        // Guardar en localStorage
+        saveButtons(buttons);
         
         // Recargar lista y botones principales
         loadAdminButtons();

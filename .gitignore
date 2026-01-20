@@ -1,6 +1,3 @@
-# Firebase config (opcional - solo si no quieres subir las credenciales)
-# firebase-config.js
-
 # Node modules
 node_modules/
 
